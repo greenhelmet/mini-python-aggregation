@@ -1,73 +1,77 @@
-### 미니 스크립트 마무리 정리
+### 미니 스크립트 Day 2 마무리 정리
 
-**1. 스크립트 목적**
+**1. Day 2 실습 목적**
 
-이 스크립트는 리뷰 로그 리스트를 입력으로 받아
+Day 2에서는 코드 작성 자체보다,
 
-`item_id` 기준으로 리뷰 개수와 평균 평점을 계산한다.
+- Linux 환경에서의 기본적인 파일·디렉토리 조작
+- Git 저장소 상태 확인 및 히스토리 추적
+- Windows + WSL 혼합 환경에서의 파일 시스템 개념
 
-리뷰 데이터 집계라는 전형적인 백엔드/추천 시스템 전처리 작업을 단순화한 예제다.
+을 실습을 통해 익히는 것을 목표로 했다.
+
+이후 백엔드 개발, Docker, 서버 환경에서 필수적으로 요구되는  
+**개발 환경 이해 능력**을 기르는 단계다.
 
 ---
 
-**2. 입력 / 출력 형태**
+**2. 실습 입력 / 출력 형태**
 
 입력
 
-- `list[dict]`
-- 각 리뷰는 다음 필드를 가진다.
-    - `review_id: int`
-    - `item_id: str`
-    - `review_text: str`
-    - `rating: int`
+- 사용자 명령어
+    - Linux shell 명령어 (`ls`, `cd`, `mkdir`, `rm` 등)
+    - Git 명령어 (`git status`, `git log` 등)
+- 작업 대상
+    - Windows 파일 시스템 내 프로젝트 디렉토리
+    - 경로 예시:
+        - Windows: `C:\Users\chach\Downloads\mini`
+        - WSL: `/mnt/c/Users/chach/Downloads/mini`
 
 출력
 
-- `dict[str, dict[str, float]]`
-- key: `item_id`
-- value:
-    - `review_count: int`
-    - `average_rating: float`
+- 터미널 출력
+    - 파일 목록
+    - 현재 경로
+    - Git 저장소 상태 및 커밋 로그
+- 파일 시스템 변화
+    - 디렉토리 / 파일 생성·삭제
+    - Git이 추적하는 변경 사항
 
 ---
 
-**3. 핵심 구현 포인트**
+**3. 핵심 실습 포인트**
 
-- **dict를 사용한 집계**
-    - `item_id`를 key로 사용해 O(1) lookup으로 리뷰를 누적
-    - 중간 집계용 dict(`temp`)에 count와 sum을 분리 저장
-- **2단계 처리 구조**
-    1. for-loop으로 review_count, rating_sum 계산
-    2. dict comprehension으로 평균 계산 및 최종 결과 생성
-- **type hint 적용**
-    - 함수 시그니처와 내부 변수에 타입 명시
-    - 입력/출력 구조가 코드만 봐도 명확해짐
-- **assert 기반 검증**
-    - 사람이 계산한 기대값과 결과를 직접 비교
-    - 간단하지만 테스트의 역할을 수행
+- **Linux 기본 명령어 사용**
+    - 파일 시스템을 직접 조작하며 명령어의 역할을 체감
+- **Git 상태 기반 워크플로우**
+    - “지금 어떤 파일이 추적되고 있는가”를 기준으로 사고
+- **Windows ↔ WSL 경로 매핑 이해**
+    - `/mnt/c`는 Windows C 드라이브의 마운트 지점
+    - 동일한 파일을 서로 다른 OS 관점에서 접근 가능
 
 ---
 
-**4. 이 구현에서 일부러 선택한 트레이드오프**
+**4. 이 실습에서 일부러 선택한 트레이드오프**
 
-- 평균 평점을 `float`로 반환
-    
-    → 반올림 규칙을 명시하지 않아도 되어 로직 단순화
-    
-- `review_text`는 사용하지 않음
-    
-    → 실제 로그 구조를 유지하면서도 집계 로직에 집중
-    
-- 예외 처리(빈 리스트, rating 누락 등)는 생략
-    
-    → Day 1 목표는 문법과 자료구조 숙련
-    
+- Windows 디렉토리를 그대로 사용  
+  → WSL 전용 홈 디렉토리보다 권한 이슈를 직접 경험
+
+- 고급 Git 명령어는 사용하지 않음  
+  → Day 2 목표는 개념 정착과 환경 이해
+
+- 자동화 스크립트 작성은 생략  
+  → 명령어 단위 동작을 손으로 확인하는 데 집중
 
 ---
 
-**5. 개선 가능 포인트 (다음 단계용 메모)**
+**5. 문제 상황 및 해결 기록**
 
-- `defaultdict`를 사용하면 초기화 로직을 줄일 수 있음
-- `TypedDict`로 리뷰 스키마를 명시하면 타입 안정성 향상
-- 빈 입력 리스트에 대한 early return 처리
-- 이 함수를 FastAPI endpoint로 감싸면 실제 서비스 형태가 됨
+- **Git dubious ownership 에러 발생**
+
+  원인:
+  - Windows 사용자와 WSL 사용자의 파일 소유권 불일치
+
+  해결:
+  ```bash
+  git config --global --add safe.directory /mnt/c/Users/chach/Downloads/mini
