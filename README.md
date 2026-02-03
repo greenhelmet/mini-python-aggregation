@@ -1,77 +1,181 @@
-### 미니 스크립트 Day 2 마무리 정리
+# Mini FastAPI — Week 3 Day 1
 
-**1. Day 2 실습 목적**
+## 1. Day 1 실습 목적
 
-Day 2에서는 코드 작성 자체보다,
+Week 3 Day 1에서는 기존 mini 스크립트 프로젝트를 기반으로,
+**FastAPI 애플리케이션 구조를 이해하고 최소 단위의 API를 설계·구현**하는 것을 목표로 했다.
 
-- Linux 환경에서의 기본적인 파일·디렉토리 조작
-- Git 저장소 상태 확인 및 히스토리 추적
-- Windows + WSL 혼합 환경에서의 파일 시스템 개념
+핵심 목표는 다음과 같다.
 
-을 실습을 통해 익히는 것을 목표로 했다.
+- FastAPI 프로젝트의 기본 구조 이해
+- Router / Schema / Service 레이어 분리
+- Create / Read 중심의 최소 CRUD API 구현
+- 실행 코드와 도메인 로직 분리 원칙 유지
+- 이후 테스트·DB·인증 확장을 고려한 구조 고정
 
-이후 백엔드 개발, Docker, 서버 환경에서 필수적으로 요구되는  
-**개발 환경 이해 능력**을 기르는 단계다.
-
----
-
-**2. 실습 입력 / 출력 형태**
-
-입력
-
-- 사용자 명령어
-    - Linux shell 명령어 (`ls`, `cd`, `mkdir`, `rm` 등)
-    - Git 명령어 (`git status`, `git log` 등)
-- 작업 대상
-    - Windows 파일 시스템 내 프로젝트 디렉토리
-    - 경로 예시:
-        - Windows: `C:\Users\chach\Downloads\mini`
-        - WSL: `/mnt/c/Users/chach/Downloads/mini`
-
-출력
-
-- 터미널 출력
-    - 파일 목록
-    - 현재 경로
-    - Git 저장소 상태 및 커밋 로그
-- 파일 시스템 변화
-    - 디렉토리 / 파일 생성·삭제
-    - Git이 추적하는 변경 사항
+기능의 완성도보다 **책임 경계와 구조적 일관성**에 초점을 둔다.
 
 ---
 
-**3. 핵심 실습 포인트**
+## 2. 디렉토리 구조
 
-- **Linux 기본 명령어 사용**
-    - 파일 시스템을 직접 조작하며 명령어의 역할을 체감
-- **Git 상태 기반 워크플로우**
-    - “지금 어떤 파일이 추적되고 있는가”를 기준으로 사고
-- **Windows ↔ WSL 경로 매핑 이해**
-    - `/mnt/c`는 Windows C 드라이브의 마운트 지점
-    - 동일한 파일을 서로 다른 OS 관점에서 접근 가능
+### 현재 구조
+
+mini_fastapi/
+├── app/
+│ ├── main.py
+│ ├── api/
+│ │ └── routers/
+│ │ └── items.py
+│ ├── schemas/
+│ │ └── item.py
+│ └── services/
+│ └── item_service.py
+└── README.md
+
+
+### 구조 설계 의도
+
+- `main.py`
+  - FastAPI 애플리케이션 엔트리포인트
+  - app 생성 및 router 조립만 담당
+- `api/routers/`
+  - HTTP 레이어
+  - 요청/응답 스키마 연결 및 Service 호출
+- `schemas/`
+  - API 입력/출력 계약 정의 (Pydantic)
+  - 요청 모델과 응답 모델을 명확히 분리
+- `services/`
+  - 비즈니스 로직 계층
+  - FastAPI, HTTP, Request/Response를 모르는 순수 Python 코드
+
+이 구조는 이전 Day 3에서 적용한
+**실행 코드 / 서비스 로직 분리 원칙을 API 레벨로 확장**한 것이다.
 
 ---
 
-**4. 이 실습에서 일부러 선택한 트레이드오프**
+## 3. API 설계 개요 (Create / Read)
 
-- Windows 디렉토리를 그대로 사용  
-  → WSL 전용 홈 디렉토리보다 권한 이슈를 직접 경험
+### 도메인 모델
 
-- 고급 Git 명령어는 사용하지 않음  
-  → Day 2 목표는 개념 정착과 환경 이해
+- Item
+  - 시스템이 생성한 리소스
+- ItemCreate
+  - 클라이언트가 전달하는 생성 요청 데이터
 
-- 자동화 스크립트 작성은 생략  
-  → 명령어 단위 동작을 손으로 확인하는 데 집중
+요청과 응답 모델을 분리해,
+입력 계약과 출력 계약을 명확히 한다.
 
 ---
 
-**5. 문제 상황 및 해결 기록**
+## 4. Schema 설계
 
-- **Git dubious ownership 에러 발생**
+```python
+# app/schemas/item.py
+from pydantic import BaseModel
 
-  원인:
-  - Windows 사용자와 WSL 사용자의 파일 소유권 불일치
+class Item(BaseModel):
+    id: str
 
-  해결:
-  ```bash
-  git config --global --add safe.directory /mnt/c/Users/chach/Downloads/mini
+class ItemCreate(BaseModel):
+    name: str
+
+ItemCreate는 요청 전용
+
+Item은 응답 전용
+
+TypedDict로 입력/출력 계약을 분리하던 흐름을
+Pydantic 기반 API 계약으로 확장
+
+# app/services/item_service.py
+from typing import Dict, List
+from uuid import uuid4
+
+from app.schemas.item import Item, ItemCreate
+
+_items: Dict[str, Item] = {}
+
+def get_items() -> List[Item]:
+    return list(_items.values())
+
+def create_item(data: ItemCreate) -> Item:
+    item_id = str(uuid4())
+    item = Item(id=item_id)
+    _items[item_id] = item
+    return item
+
+5. Service 설계
+# app/services/item_service.py
+from typing import Dict, List
+from uuid import uuid4
+
+from app.schemas.item import Item, ItemCreate
+
+_items: Dict[str, Item] = {}
+
+def get_items() -> List[Item]:
+    return list(_items.values())
+
+def create_item(data: ItemCreate) -> Item:
+    item_id = str(uuid4())
+    item = Item(id=item_id)
+    _items[item_id] = item
+    return item
+
+
+설계 포인트:
+
+in-memory 저장소를 Service 레이어가 소유
+
+Service는 동기 함수
+
+FastAPI, HTTP, status code에 대한 의존성 없음
+
+이후 DB 도입 시 Service 내부 구현만 교체 가능
+
+6. Router 설계
+# app/api/routers/items.py
+from typing import List
+from fastapi import APIRouter
+
+from app.schemas.item import Item, ItemCreate
+from app.services.item_service import get_items, create_item
+
+router = APIRouter()
+
+@router.get("/items/", response_model=List[Item])
+async def read_items():
+    return get_items()
+
+@router.post("/items/", response_model=Item)
+async def create_item_endpoint(item: ItemCreate):
+    return create_item(item)
+
+
+Router의 책임:
+
+HTTP 요청 수신
+
+Pydantic Schema를 통한 입력 검증
+
+Service 호출
+
+응답 모델 검증(response_model)
+
+비즈니스 로직은 포함하지 않는다.
+
+7. main.py 역할
+# app/main.py
+from fastapi import FastAPI
+from app.api.routers import items
+
+app = FastAPI()
+
+app.include_router(items.router)
+
+
+애플리케이션 조립 전용
+
+도메인 로직 없음
+
+이후 router, middleware, dependency 확장에 대비
