@@ -16,5 +16,3 @@ def test_get_item_by_id_success():
 def test_get_item_by_id_not_found():
     with pytest.raises(ValueError):
         get_item_by_id("not-exist-id")
-
-    
