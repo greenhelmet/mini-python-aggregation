@@ -1,15 +1,19 @@
-Mini FastAPI — Week 3 Day 1 ~ Week 4 Day 1
-1. 학습 목적
-Week 3 Day 1부터 Week 4 Day 1까지의 목표는 다음과 같다.
+# Mini FastAPI — Architecture & Authentication Design
 
-FastAPI 프로젝트의 기본 구조 확립
-Router / Schema / Service 레이어 책임 분리
-Service 단 테스트 → API 테스트의 테스트 레벨 분리
-Python 표준 logging 기반의 레이어별 로그 기준 정립
-FastAPI ValidationError 발생 위치 및 로그 부재 원인 관찰
-기능 확장보다는 구조, 책임 경계, 운영 관점의 가시성에 초점을 둔다.
+## 1. 학습 목적
 
-2. 디렉토리 구조
+본 프로젝트는 기능 구현보다 **구조, 책임 경계, 운영 가시성**을 우선하는 FastAPI 학습을 목표로 한다.
+Week 3 Day 1부터 Week 4 Day 1까지는 다음 질문에 대한 명확한 답을 설계 수준에서 확립하는 데 집중했다.
+
+* 각 레이어는 무엇을 알고, 무엇을 몰라야 하는가
+* 비즈니스 로직은 어떤 전제를 가지고 실행되는가
+* 에러와 실패는 어디에서 정의되고, 어디에서 변환되는가
+
+---
+
+## 2. 디렉토리 구조
+
+```
 mini_fastapi/
 ├── app/
 │   ├── main.py
@@ -21,218 +25,185 @@ mini_fastapi/
 │   ├── services/
 │   │   └── item_service.py
 │   └── core/
-│       └── logging.py
+│       ├── logging.py
+│       └── exceptions.py
 ├── tests/
 │   ├── test_item_service.py
 │   └── test_item_api.py
 └── README.md
-구조 설계 의도
-main.py
-
-FastAPI 애플리케이션 엔트리포인트
-router 조립 전용
-api/routers/
-
-HTTP 레이어
-요청 수신, Path/Body 매핑
-Service 예외를 HTTPException으로 변환
-schemas/
-
-API 입력/출력 계약 정의 (Pydantic)
-요청 모델과 응답 모델 분리
-services/
+```
 
-비즈니스 로직 계층
-FastAPI / HTTP 의존성 없음
-core/
+---
 
-로깅, 설정 등 공통 인프라 코드
-tests/
+## 3. 레이어별 책임 설계
 
-Service 테스트와 API 테스트 분리
-3. 도메인 및 Schema 설계
-Item: 시스템이 생성한 리소스 (응답 전용)
-ItemCreate: 클라이언트 입력 데이터 (요청 전용)
-요청과 응답 모델을 분리해 입력 계약과 출력 계약을 명확히 한다.
+### main.py
 
-4. Service Layer 설계
-in-memory 저장소를 Service 레이어가 소유
-순수 동기 함수로 구성
-HTTP, status code 개념 없음
-실패 시 ValueError 발생
-이 구조를 통해 이후 DB 도입 시 내부 구현만 교체 가능하도록 설계했다.
+* 애플리케이션 엔트리포인트
+* Router 및 Global Exception Handler 등록 전용
+* 비즈니스 로직 포함 금지
 
-5. Router Layer 설계
-Router의 책임은 다음으로 제한한다.
+### api / routers
 
-HTTP 요청 수신
-Path / Body 매핑
-Service 호출
-Service 예외 → HTTPException 변환
-response_model 기반 응답 계약 검증
-비즈니스 로직은 포함하지 않는다.
+* HTTP 요청 수신
+* Path / Body 매핑
+* Service 호출
+* 정상 흐름 로깅
 
-6. 테스트 전략
-Service 테스트
-성공 / 실패 케이스 모두 검증
-in-memory 상태 직접 확인
-ValueError 발생 여부 고정
-API 테스트
-행복 경로 중심
-HTTP status code와 응답 형태만 검증
-Service 로직 재검증하지 않음
-원칙
+HTTP 레이어는 **요청을 해석하고 전달하는 역할**에 한정되며, 비즈니스 규칙이나 예외 정책을 소유하지 않는다.
 
-Service 테스트 수 > API 테스트 수
-비즈니스 규칙은 Service에서만 검증
-7. Logging 설계 (Week 4 Day 1)
-공통 로깅 구조
-Python 표준 logging 사용
-FastAPI 비의존 코드
-module 단위 logger name 사용
-handler 중복 방지
-Service Layer 로그 기준
-info: 비즈니스 이벤트 성공 (Item 생성 등)
-warning: 비즈니스 실패 (존재하지 않는 Item 조회)
-debug: 내부 상태 (_items 길이 등)
-Service 로그에는 HTTP, status code 개념이 등장하지 않는다.
+### schemas
 
-Router Layer 로그 기준
-info: 요청 수신, 정상 응답 반환
-error: Service 예외를 HTTPException으로 변환하는 지점
-Router 로그는 "어떤 요청이 실패했는가"에 집중한다.
+* API 입력 / 출력 계약 정의
+* 요청 모델과 응답 모델 분리
+* Pydantic을 계약 검증 도구로 사용
 
-8. Validation Error 관찰
-잘못된 요청 payload 전송 시:
+Schema는 검증 로직이 아니라 **계약 명세**다.
 
-HTTP 422 Unprocessable Entity 반환
-Service / Router 로그 모두 남지 않음
-원인
+### services
 
-Pydantic ValidationError는 Router 함수 실행 이전 단계에서 발생
-현재 로깅 지점을 우회함
-이를 통해 "로그가 남지 않는 에러"의 정체가 FastAPI 요청 처리 파이프라인 상단에 있음을 확인했다.
+* 비즈니스 로직 계층
+* FastAPI 및 HTTP 비의존
+* 저장소(in-memory) 소유
+* 실패는 도메인 의미의 예외로만 표현
 
-기존 Router try/except 방식의 문제점
-초기 구현에서는 Router 레이어에서 Service 호출을 try/except로 감싸고, ValueError 등을 HTTPException으로 변환하는 방식을 사용했다.
+Service는 **인증된 세계를 전제로 동작**하지만, 인증이라는 개념을 알지 않는다.
 
-이 방식에는 다음과 같은 구조적 문제가 있었다.
+### core
 
-책임 혼재
+* 로깅, 예외 처리 등 공통 인프라
+* FastAPI 의존 최소화
+* 애플리케이션 전반의 횡단 관심사 관리
 
-Router가 비즈니스 실패의 의미를 해석하고 HTTP status를 결정함
+---
 
-Service의 실패 정책이 HTTP 레이어에 침투
+## 4. Service / Router 설계 원칙 요약
 
-중복 코드
+### Service Layer
 
-각 Endpoint마다 유사한 try/except 패턴 반복
+* 순수 동기 함수
+* HTTP / status code 개념 제거
+* 비즈니스 실패는 도메인 의미의 예외로 표현
+* Web 환경이 없어도 실행 가능해야 함
 
-예외 유형이 늘어날수록 Router 코드 비대화
+### Router Layer
 
-로그 일관성 붕괴
+* HTTP 요청 수신 및 매핑
+* Service 호출
+* response_model 기반 응답 계약 검증
 
-어떤 에러는 Router에서 로그가 남고
+Router는 **흐름만 연결**하며, 판단하지 않는다.
 
-어떤 에러는 FastAPI 내부에서 처리되어 로그가 남지 않음
+---
 
-확장성 저하
+## 5. 테스트 전략
 
-새로운 도메인 예외 추가 시 모든 Router 수정 필요
+### Service 테스트
 
-결과적으로 Router가 “얇은 HTTP 어댑터” 역할을 수행하지 못하고 에러 정책의 중심이 되는 구조였다.
+* 성공 / 실패 케이스 모두 검증
+* in-memory 상태 직접 확인
+* 도메인 예외 발생 여부 고정
 
-Global Exception Handler 구조 도입
-위 문제를 해결하기 위해 Global Exception Handler 구조를 도입했다.
+### API 테스트
 
-핵심 아이디어는 다음과 같다.
+* 행복 경로 중심
+* HTTP status code 및 응답 형태만 검증
+* Service 로직 재검증 금지
 
-Service는 의미 있는 예외만 발생
+원칙적으로:
 
-Router는 예외를 처리하지 않음
+* Service 테스트 수 > API 테스트 수
+* 비즈니스 규칙은 Service에서만 검증
 
-예외 → HTTP 응답 변환은 단 하나의 레이어에서만 수행
+---
 
-이를 위해 app/core/exceptions.py에 예외 타입별 handler 함수를 정의하고, main.py에서 전역 등록했다.
+## 6. Logging 및 예외 처리 설계
 
-구조 변화 요약
+### Logging 원칙
 
-Router
+* Python 표준 logging 사용
+* module 단위 logger name
+* handler 중복 방지
 
-try/except 제거
+### 로그 책임 분리
 
-정상 흐름만 로깅
+* Service: 비즈니스 이벤트와 상태
+* Router: 요청 단위 성공 / 실패 맥락
 
-HTTP status 결정 권한 제거
+### Global Exception Handler
 
-Service
+* 모든 예외를 단일 지점에서 처리
+* 예외 의미 → HTTP 응답 변환 담당
+* ValidationError 포함 모든 에러 로깅
 
-HTTP 개념 완전 제거
+이 구조를 통해 **로그 누락 없는 에러 가시성**을 확보한다.
 
-비즈니스 실패 시 ValueError 발생
+---
 
-Global Handler
+## 7. Authentication / Authorization 설계 원칙
 
-예외 타입 → HTTP status 매핑
+### 개념 정의
 
-RFC 7807 기반 공통 ErrorResponse 생성
+* Authentication: 이 사용자가 누구인가를 확인하는 과정
+* Authorization: 이 사용자가 무엇을 할 수 있는지를 결정하는 과정
 
-로그 레벨 일관성 유지
+두 개념은 목적, 실패 성격, 책임 레이어가 다르며 반드시 분리되어야 한다.
 
-이 구조를 통해 모든 에러 응답은 동일한 JSON shape로 반환된다.
+---
 
-로그가 남지 않던 에러의 정체
-잘못된 요청 payload를 보냈을 때:
+## 8. 인증 정보의 레이어 위치
 
-HTTP 422 응답은 반환되지만
+인증과 관련된 정보는 다음 원칙을 따른다.
 
-Router / Service 로그가 전혀 남지 않는 현상을 관찰했다.
+* Request Context (header, token 등)는 애플리케이션 경계까지만 유효하다
+* 인증 정보 해석은 비즈니스 진입 이전에 완료되어야 한다
+* Service Layer에는 인증 결과만 전달된다
 
-원인은 FastAPI 요청 처리 파이프라인에 있었다.
+Service는 다음을 전제로 한다.
 
-RequestValidationError는
+* 요청 주체는 이미 인증되었다
+* 전달된 주체 정보는 유효하다
 
-Router 함수 실행 이전 단계
+---
 
-Pydantic validation 단계에서 발생
+## 9. 인증 실패의 예외 처리 철학
 
-즉, 기존 로깅 지점(Router / Service)을 우회하고 있었다.
+* 인증 실패는 도메인 규칙 위반이 아니다
+* 인증 실패는 비즈니스 로직이 평가되기 이전의 실패다
+* HTTP 401 / 403은 도메인 언어가 아니라 인프라 언어다
 
-Global Exception Handler에서 RequestValidationError를 명시적으로 처리함으로써:
+따라서:
 
-ValidationError에도 로그가 남고
+* 인증 실패는 Service에서 표현되지 않는다
+* 도메인 예외는 HTTP 개념을 포함하지 않는다
+* 모든 변환은 Global Exception Handler에서 수행된다
 
-정상/비정상 요청 흐름을 로그로 완전히 추적 가능해졌다.
+---
 
-이 구조가 운영에 유리한 이유
-Global Exception Handler 구조는 단순한 코드 정리가 아니라 운영 관점의 가시성을 개선한다.
+## 10. Service Layer 비침투 원칙
 
-모든 에러가 한 지점에서 로깅
+Service Layer에는 다음 개념이 들어가지 않는다.
 
-로그 누락 케이스 제거
+* 인증 토큰
+* Request / Header
+* HTTP status code
+* 인증 실패 가능성
 
-에러 유형별 로그 레벨 고정
+Service는 **인증된 세계를 전제로 한 순수 비즈니스 규칙**만을 다룬다.
 
-HTTP status와 에러 의미 분리
+이 원칙을 통해:
 
-status: 인프라 / 모니터링 관점
+* Service 테스트 단순화
+* Batch / Script / Offline 환경 재사용 가능
+* 인증 방식 변경에 대한 내성 확보
 
-ErrorResponse: 애플리케이션 의미론
+---
 
-테스트 전략 명확화
+## 11. 설계 결론
 
-Service 테스트: 비즈니스 규칙
+이 프로젝트의 핵심은 기능 구현이 아니라 다음 질문에 대한 명확한 답이다.
 
-API 테스트: HTTP 계약과 응답 형태
+* 이 로직은 어느 레이어의 책임인가
+* 이 실패는 어느 레이어의 언어인가
 
-책임 경계가 테스트에도 그대로 반영됨
-
-확장에 유리한 구조
-
-도메인별 Custom Exception 추가 가능
-
-에러 코드 체계화 용이
-
-환경별(detail 노출 여부) 분리 가능
-
-결과적으로 이 구조는 “에러를 처리하는 코드”가 아니라 “에러를 설계 가능한 대상”으로 만든다.
+그 결과, 본 구조는 에러를 처리하는 코드가 아니라 **에러를 설계 가능한 대상으로 만든다.**
