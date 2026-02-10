@@ -4,7 +4,7 @@
 
 본 프로젝트는 기능 구현보다 **구조, 책임 경계, 실패의 위치**를 명확히 하는 FastAPI 학습을 목표로 한다.
 
-Week 3 Day 1부터 Week 5 Day 2까지의 핵심 질문은 다음과 같다.
+Week 3 Day 1부터 Day 3까지의 핵심 질문은 다음과 같다.
 
 - 각 레이어는 무엇을 알고, 무엇을 몰라야 하는가
 - 비즈니스 로직은 어떤 전제를 가지고 실행되는가
@@ -22,22 +22,22 @@ mini_fastapi/
 │ ├── main.py
 │ ├── api/
 │ │ └── routers/
-│ │ └── items.py
+│ │     └── items.py
 │ ├── schemas/
 │ │ ├── item.py
 │ │ └── user.py
 │ ├── services/
 │ │ └── item_service.py
-│ └── core/
-│ ├── auth.py
+│ └── dependencies/
+│     └── auth.py
+├── core/
 │ ├── logging.py
 │ └── exceptions.py
+│ └── context.py
 ├── tests/
 │ ├── test_item_service.py
 │ └── test_item_api.py
 └── README.md
-
-
 
 ---
 
@@ -86,9 +86,18 @@ Service는 **이미 인증된 세계를 전제로 동작**하지만,
 
 ---
 
+### dependencies / auth.py
+
+- 인증 관련 Dependency 정의
+- 토큰 파싱, 검증, User 로딩 책임 분리
+- 인증 실패 시 의미 있는 예외 발생 (`AuthenticationError`)
+- Service에 인증 실패 개념 침투 금지
+
+---
+
 ### core
 
-- 로깅, 인증 Dependency, 예외 처리 등 공통 인프라
+- 로깅, 예외 처리 등 공통 인프라
 - 애플리케이션 전반의 횡단 관심사 관리
 - 비즈니스 규칙 포함 금지
 
@@ -103,11 +112,7 @@ FastAPI에서 `Depends`는 다음 시점에 실행된다.
 3. 모든 Dependency 실행
 4. Router 함수 body 실행
 
-즉,
-
-- Router 함수 body가 실행될 때
-- `Depends`로 주입된 값은 **이미 생성 완료된 상태**다
-
+즉, Router 함수 body가 실행될 때 **이미 주입값 생성 완료** 상태다.  
 Dependency는 **비즈니스 로직의 일부가 아니라 진입 조건 계산기**다.
 
 ---
@@ -116,12 +121,8 @@ Dependency는 **비즈니스 로직의 일부가 아니라 진입 조건 계산�
 
 FastAPI Dependency는 요청 단위로 캐싱된다.
 
-- 동일 요청 내
-- 동일 Dependency 그래프에서는
-- Dependency 함수가 **1회만 실행**된다
-
-중첩된 Depends에서도 로그가 한 번만 찍히는 이유는  
-FastAPI가 Dependency DAG를 구성하고 **중복 호출을 제거**하기 때문이다.
+- 동일 요청 내 동일 Dependency 그래프에서 1회만 실행
+- 중첩 Depends에서도 중복 호출 제거
 
 ---
 
@@ -160,9 +161,13 @@ Service는 **인증 결과를 신뢰**하지만
 - Service는 인증 실패 가능성을 고려하지 않는다
 - 인증 실패 → HTTP 응답 변환은 Router / Global Handler의 책임이다
 
+**정리 문장:**  
+*“Authentication is a gate, not a rule”*  
+→ 인증은 **Service 로직의 규칙이 아니라**, 요청 진입을 허용/차단하는 관문이다.
+
 ---
 
-## 8. 테스트 전략과 Depends의 위치
+## 8. 테스트 전략과 Depends 위치
 
 ### Service 테스트
 
@@ -173,7 +178,7 @@ Service는 **인증 결과를 신뢰**하지만
 ### API 테스트
 
 - Dependency override 사용
-- 인증 로직 검증 금지
+- 인증 로직 자체는 검증하지 않음
 - HTTP status / response shape만 검증
 
 이 분리를 통해:
@@ -209,4 +214,3 @@ Depends는 편의 기능이 아니라
 
 그 결과, 이 구조는 에러를 처리하는 코드가 아니라  
 **에러를 설계 가능한 대상으로 만든다.**
-

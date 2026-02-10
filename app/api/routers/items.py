@@ -5,7 +5,7 @@ from app.schemas.item import Item, ItemCreate
 from app.schemas.user import User
 from app.services.item_service import get_items, create_item, get_item_by_id
 from app.core.logging import get_logger
-from app.core.auth import get_current_user, get_token
+from app.dependencies.auth import get_current_user
 
 logger = get_logger(__name__)
 
@@ -14,7 +14,6 @@ router = APIRouter()
 @router.get("/items/", response_model=List[Item])
 async def read_items(
     user: User = Depends(get_current_user),
-    token: str = Depends(get_token),
 ):
     logger.info("GET /items requested",
                 extra={"user": user.username},

@@ -1,3 +1,10 @@
+class AuthenticationError(Exception):
+    pass
+
+class AuthorizationError(Exception):
+    pass
+
+
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -68,5 +75,41 @@ def unhandled_exception_handler(
         "title": "Internal server error",
         "status": 500,
         "detail": "Unexcepted error occurred",
+        },
+    )
+    
+def authentication_error_handler(
+    request: Request, exc: AuthenticationError
+) -> JSONResponse:
+    logger.warning(
+        "authentication failed",
+        extra={"path": request.url.path, "detail": str(exc)},
+    )
+    
+    return JSONResponse(
+        status_code=401,
+        content={
+            "type": "authentication_error",
+            "title": "Authentication failed",
+            "status": 401,
+            "detail": str(exc),
+        },
+    )
+    
+def authorization_error_handler(
+    request: Request, exc: AuthorizationError
+) -> JSONResponse:
+    logger.warning(
+        "authorization failed",
+        extra={"path": request.url.path, "detail": str(exc)},
+    )
+    
+    return JSONResponse(
+        status_code=403,
+        content={
+            "type": "authorization_error",
+            "title": "permission denied",
+            "status": 403,
+            "detail": str(exc),
         },
     )
