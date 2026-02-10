@@ -2,16 +2,17 @@ from typing import List, Dict
 from uuid import uuid4
 
 from app.schemas.item import Item, ItemCreate
+from app.schemas.user import User
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 _items: list[Item] = []
 
-def get_items() -> List[Item]:
+def get_items(user: User) -> List[Item]:
     return _items
 
-def create_item(data: ItemCreate) -> Item:
+def create_item(data: ItemCreate, user: User) -> Item:
     logger.debug("Creating item", extra={"item_name": data.item_name})
     
     item_id = str(uuid4())
@@ -31,7 +32,7 @@ def create_item(data: ItemCreate) -> Item:
     
     return item
 
-def get_item_by_id(item_id: str) -> Item:
+def get_item_by_id(item_id: str, user: User) -> Item:
     logger.debug(
         "Searching item",
         extra={

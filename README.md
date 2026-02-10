@@ -3,7 +3,11 @@
 ## 1. 학습 목적
 
 본 프로젝트는 기능 구현보다 **구조, 책임 경계, 운영 가시성**을 우선하는 FastAPI 학습을 목표로 한다.
+<<<<<<< HEAD
 Week 3 Day 1부터 Week 4 Day 1까지는 다음 질문에 대한 명확한 답을 설계 수준에서 확립하는 데 집중했다.
+=======
+Week 3 Day 1부터 Week 5 Day 1까지는 다음 질문에 대한 명확한 답을 설계 수준에서 확립하는 데 집중했다.
+>>>>>>> 1962998 (Apply dependency injection design and document auth boundaries)
 
 * 각 레이어는 무엇을 알고, 무엇을 몰라야 하는가
 * 비즈니스 로직은 어떤 전제를 가지고 실행되는가
